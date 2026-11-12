@@ -1,0 +1,22 @@
+{
+  "name": "estoque-cantina-testes",
+  "version": "1.0.0",
+  "description": "Trabalho final de Teste de Software",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^13.1.1",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.4",
+    "supertest": "^7.0.0",
+    "vitest": "^2.1.4"
+  }
+}

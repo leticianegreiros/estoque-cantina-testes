@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Estoque da Cantina</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; }
+    .oculto { display: none; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    input, button { margin: 5px 0; padding: 8px; }
+    .erro { color: red; font-weight: bold; }
+    .card { border: 1px solid #ddd; padding: 20px; border-radius: 5px; background: #f9f9f9; }
+  </style>
+</head>
+<body>
+  <h1>📦 Estoque da Cantina</h1>
+  
+  <div id="login-container" class="card">
+    <h2>Acesso Restrito</h2>
+    <input type="text" id="usuario" placeholder="Usuário (digite: admin)" autocomplete="off"><br>
+    <input type="password" id="senha" placeholder="Senha (digite: admin123)"><br>
+    <button onclick="fazerLogin()">Entrar no Sistema</button>
+    <p id="msg-login" class="erro"></p>
+  </div>
+
+  <div id="sistema-container" class="oculto">
+    <button onclick="fazerLogout()" style="float: right;">Sair</button>
+    
+    <div class="card">
+      <h2>Cadastrar / Editar Produto</h2>
+      <input type="hidden" id="produto-id">
+      <input type="text" id="nome" placeholder="Nome do Produto (Ex: Coxinha)"><br>
+      <input type="number" id="preco" placeholder="Preço (Ex: 5.50)" step="0.01"><br>
+      <input type="number" id="quantidade" placeholder="Quantidade (Ex: 20)"><br>
+      <button onclick="salvarProduto()">Salvar Produto</button>
+      <p id="msg-sistema" class="erro"></p>
+    </div>
+
+    <h2>Lista de Produtos</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Preço (R$)</th>
+          <th>Estoque</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-corpo"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let token = localStorage.getItem('token');
+    if (token) mostrarSistema();
+
+    async function fazerLogin() {
+      const usuario = document.getElementById('usuario').value;
+      const senha = document.getElementById('senha').value;
+      
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha })
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        token = data.token;
+        localStorage.setItem('token', token);
+        mostrarSistema();
+      } else {
+        document.getElementById('msg-login').innerText = data.erro;
+      }
+    }
+
+    function fazerLogout() {
+      token = null;
+      localStorage.removeItem('token');
+      document.getElementById('login-container').classList.remove('oculto');
+      document.getElementById('sistema-container').classList.add('oculto');
+    }
+
+    function mostrarSistema() {
+      document.getElementById('login-container').classList.add('oculto');
+      document.getElementById('sistema-container').classList.remove('oculto');
+      carregarProdutos();
+    }
+
+    async function reqAuth(url, options = {}) {
+      options.headers = { ...options.headers, 'Authorization': 'Bearer ' + token };
+      const res = await fetch(url, options);
+      if (res.status === 401) {
+        fazerLogout();
+        throw new Error('Não autorizado');
+      }
+      return res;
+    }
+
+    async function carregarProdutos() {
+      const res = await reqAuth('/api/produtos');
+      const produtos = await res.json();
+      const tbody = document.getElementById('tabela-corpo');
+      tbody.innerHTML = '';
+      
+      produtos.forEach(p => {
+        tbody.innerHTML += `
+          <tr>
+            <td>${p.id}</td>
+            <td>${p.nome}</td>
+            <td>R$ ${p.preco.toFixed(2)}</td>
+            <td>${p.quantidade}</td>
+            <td>
+              <button onclick="editarProduto(${p.id}, '${p.nome}', ${p.preco}, ${p.quantidade})">Editar</button>
+              <button onclick="excluirProduto(${p.id})">Excluir</button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    async function salvarProduto() {
+      const id = document.getElementById('produto-id').value;
+      const nome = document.getElementById('nome').value;
+      const preco = parseFloat(document.getElementById('preco').value);
+      const quantidade = parseInt(document.getElementById('quantidade').value);
+      
+      const metodo = id ? 'PUT' : 'POST';
+      const url = id ? `/api/produtos/${id}` : '/api/produtos';
+      
+      const res = await reqAuth(url, {
+        method: metodo,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, preco, quantidade })
+      });
+      
+      if (res.ok) {
+        document.getElementById('produto-id').value = '';
+        document.getElementById('nome').value = '';
+        document.getElementById('preco').value = '';
+        document.getElementById('quantidade').value = '';
+        document.getElementById('msg-sistema').innerText = '';
+        carregarProdutos();
+      } else {
+        const data = await res.json();
+        document.getElementById('msg-sistema').innerText = data.erro;
+      }
+    }
+
+    function editarProduto(id, nome, preco, quantidade) {
+      document.getElementById('produto-id').value = id;
+      document.getElementById('nome').value = nome;
+      document.getElementById('preco').value = preco;
+      document.getElementById('quantidade').value = quantidade;
+    }
+
+    async function excluirProduto(id) {
+      if (confirm('Excluir este produto?')) {
+        await reqAuth(`/api/produtos/${id}`, { method: 'DELETE' });
+        carregarProdutos();
+      }
+    }
+  </script>
+</body>
+</html>
